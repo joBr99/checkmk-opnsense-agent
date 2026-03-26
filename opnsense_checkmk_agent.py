@@ -32,14 +32,14 @@
 ##
 
 
-__VERSION__ = "1.2.11"
+__VERSION__ = "1.2.15"
 
 import sys
 import os
 import shlex
 import glob
 import re
-import time
+import time-
 import json
 import socket
 import signal
@@ -419,8 +419,9 @@ class checkmk_checker(object):
             _upgrade_json = json.load(open("/tmp/pkg_upgrade.json","r"))
             _upgrade_packages = dict(map(lambda x: (x.get("name"),x),_upgrade_json.get("upgrade_packages")))
             _mayor_upgrade = _upgrade_json.get("upgrade_major_version")
-            _current_firmware["version"] = _upgrade_packages.get("opnsense").get("current_version")
-            _latest_firmware["version"] = _upgrade_packages.get("opnsense").get("new_version")
+            _opnsense_package = _upgrade_packages.get("opnsense",_upgrade_packages.get("opnsense-business"))
+            _current_firmware["version"] = _opnsense_package.get("current_version")
+            _latest_firmware["version"] = _opnsense_package.get("new_version")
         except:
             _current_firmware["version"] = _current_firmware["version"].split("_")[0]
             _latest_firmware["version"] = _current_firmware["version"] ## fixme ## no upgradepckg error on opnsense ... no new version
@@ -540,7 +541,7 @@ class checkmk_checker(object):
         if self._info.get("business_expire"):
             _days = (self._info.get("business_expire") - datetime.now()).days
             _date = self._info.get("business_expire").strftime("%d.%m.%Y")
-            return [f'P "Business Licence" expiredays={_days};60:;30: Licence Expire: {_date}']
+            return [f'P "Business Licence" expiredays={_days};30;60; Licence Expire: {_date}']
         return []
 
     def check_label(self):
@@ -2230,7 +2231,7 @@ class checkmk_taskrunner(object):
             self._event.clear()
 
 
-REGEX_SMART_VENDOR = re.compile(r"^\s*(?P<num>\d+)\s(?P<name>[-\w]+).*\s{2,}(?P<value>[\w\/() ]+)$",re.M)
+REGEX_SMART_VENDOR = re.compile(r"^\s*(?P<num>\d+)\s(?P<name>[-\w]+).*\s{2,}(?P<value>[\w\/.+() ]+)$",re.M)
 REGEX_SMART_DICT = re.compile(r"^(.*?)[:=]\s*(.*?)$",re.M)
 class smart_disc(object):
     def __init__(self,device,description=""):
@@ -2259,6 +2260,9 @@ class smart_disc(object):
             "Data Units Read"   : ("data_read_bytes"    ,lambda x: x.split(" ")[0].replace(",","")),
             "Data Units Written": ("data_write_bytes"   ,lambda x: x.split(" ")[0].replace(",","")),
             "Power On Hours"    : ("poweronhours"       ,lambda x: x.replace(",","")),
+            "Power on minutes since format" : ("poweronhours" ,lambda x: self._saveint(x)/60),
+            "Accumulated power on time, hours:minutes" : ("poweronhours" ,lambda x: x.split(":")[0]),
+            "Power_On_Hours_and_Msec" : ("poweronhours" ,lambda x: x.split("h")[0]),
             "Power Cycles"      : ("powercycles"        ,lambda x: x.replace(",","")),
             "NVMe Version"      : ("transport"          ,lambda x: f"NVMe {x}"),
             "Raw_Read_Error_Rate"   : ("error_rate"     ,lambda x: x.split(" ")[-1].replace(",","")),
@@ -2498,7 +2502,7 @@ if __name__ == "__main__":
     elif args.update:
         import hashlib
         import difflib
-        from pkg_resources import parse_version
+        from packaging.version import Version
         _github_req = requests.get(f"https://api.github.com/repos/bashclub/check-opnsense/contents/opnsense_checkmk_agent.py?ref={args.update}")
         if _github_req.status_code != 200:
             raise Exception(f"Github Error {_github_req.status_code}")
@@ -2517,8 +2521,8 @@ if __name__ == "__main__":
             print(f"allready up to date {_current_sha}")
             sys.exit(0)
         else:
-            _version = parse_version(__VERSION__)
-            _nversion = parse_version(_new_version)
+            _version = Version(__VERSION__)
+            _nversion = Version(_new_version)
             if _version == _nversion:
                 print("same Version but checksums mismatch")
             elif _version > _nversion:
