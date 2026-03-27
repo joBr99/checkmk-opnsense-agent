@@ -39,7 +39,7 @@ import os
 import shlex
 import glob
 import re
-import time-
+import time
 import json
 import socket
 import signal
