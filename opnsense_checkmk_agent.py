@@ -946,9 +946,7 @@ class checkmk_checker(object):
                         continue
                 else:
                     if not _server.get("maxclients"):
-                        _max_clients = ipaddress.IPv4Network(_server.get("tunnel_network")).num_addresses -2
-                        if _server.get("topology_subnet") != "yes" and _server.get("topology") != "subnet":
-                            _max_clients = max(1,int(_max_clients/4)) ## p2p
+                        _max_clients = ipaddress.IPv4Network(_server.get("server")).num_addresses -2
                         _server["maxclients"] = _max_clients
                     try:
                         try:
