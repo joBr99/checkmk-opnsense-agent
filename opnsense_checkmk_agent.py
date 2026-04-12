@@ -882,9 +882,9 @@ class checkmk_checker(object):
         _cfn_instances = _cfn.get("Instances")
         if type(_cfn_instances) == dict:
             _cfn_instances = _cfn_instances.get("Instance")
-        for _instance in (_cfr.get("openvpn-client"),_cfr.get("openvpn-server"),_cfn_instances):
+        for _instance in (_cfr.get("openvpn-client"),_cfr.get("openvpn-server")):
             if type(_instance) == dict:
-                _instance = [_instance]
+                _instance = _cfn_instances.get("Instance")
             if type(_instance) != list:
                 continue
             for _server in _instance:
@@ -946,7 +946,9 @@ class checkmk_checker(object):
                         continue
                 else:
                     if not _server.get("maxclients"):
-                        _max_clients = ipaddress.IPv4Network(_server.get("server")).num_addresses -2
+                        _max_clients = ipaddress.IPv4Network(_server.get("tunnel_network")).num_addresses -2
+                        if _server.get("topology_subnet") != "yes" and _server.get("topology") != "subnet":
+                            _max_clients = max(1,int(_max_clients/4)) ## p2p
                         _server["maxclients"] = _max_clients
                     try:
                         try:
