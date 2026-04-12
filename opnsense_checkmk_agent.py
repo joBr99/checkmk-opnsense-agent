@@ -32,7 +32,7 @@
 ##
 
 
-__VERSION__ = "1.2.15"
+__VERSION__ = "1.2.16"
 
 import sys
 import os
@@ -76,7 +76,7 @@ from binascii import b2a_hex
 from datetime import datetime
 
 SCRIPTPATH = os.path.abspath(__file__)
-SYSHOOK_METHOD = re.findall("rc\.syshook\.d\/(start|stop)/",SCRIPTPATH)
+SYSHOOK_METHOD = re.findall(r"rc\.syshook\.d\/(start|stop)/",SCRIPTPATH)
 BASEDIR = "/usr/local/check_mk_agent"
 VARDIR = "/var/lib/check_mk_agent"
 CHECKMK_CONFIG = "/usr/local/etc/checkmk.conf"
@@ -86,7 +86,7 @@ PLUGINSDIR = os.path.join(BASEDIR,"plugins")
 SPOOLDIR = os.path.join(VARDIR,"spool")
 TASKDIR = os.path.join(BASEDIR,"tasks")
 TASKFILE_KEYS = "service|type|interval|interface|disabled|ipaddress|hostname|domain|port|piggyback|sshoptions|options|tenant"
-TASKFILE_REGEX = re.compile(f"^({TASKFILE_KEYS}):\s*(.*?)(?:\s+#|$)",re.M)
+TASKFILE_REGEX = re.compile(rf"^({TASKFILE_KEYS}):\s*(.*?)(?:\s+#|$)",re.M)
 MAX_SIMULATAN_THREADS = 4
 
 for _dir in (BASEDIR, VARDIR, LOCALDIR, PLUGINSDIR, SPOOLDIR, TASKDIR):
@@ -130,7 +130,7 @@ def log(message,prio="notice"):
         "err"       :syslog.LOG_ERR,
         "warning"   :syslog.LOG_WARNING,
         "notice"    :syslog.LOG_NOTICE, 
-        "info"      :syslog.LOG_INFO, 
+        "info"      :syslog.LOG_NOTICE, 
     }.get(str(prio).lower(),syslog.LOG_DEBUG)
     syslog.openlog(ident="checkmk_agent",logoption=syslog.LOG_PID | syslog.LOG_NDELAY,facility=syslog.LOG_DAEMON)
     syslog.syslog(priority,message)
@@ -345,7 +345,7 @@ class checkmk_checker(object):
         if os.path.isdir(SPOOLDIR):
             _now = time.time()
             for _filename in glob.glob(f"{SPOOLDIR}/*"):
-                _maxage = re.search("^(\d+)_",_filename)
+                _maxage = re.search(r"^(\d+)_",_filename)
 
                 if _maxage:
                     _maxage = int(_maxage.group(1))
@@ -370,7 +370,7 @@ class checkmk_checker(object):
 
     def do_zabbix_output(self):
         self._getosinfo()
-        _regex_convert = re.compile("^(?P<status>[0-3P])\s(?P<servicename>\".*?\"|\w+)\s(?P<metrics>[\w=.;|]+| -)\s(?P<details>.*)")
+        _regex_convert = re.compile(r"^(?P<status>[0-3P])\s(?P<servicename>\".*?\"|\w+)\s(?P<metrics>[\w=.;|]+| -)\s(?P<details>.*)")
         _json = []
         for _check in dir(self):
             if _check.startswith("checklocal_"):
@@ -448,7 +448,7 @@ class checkmk_checker(object):
         return socket.inet_ntoa(struct.pack("!I",intaddr))
 
     def pidof(self,prog,default=None):
-        _allprogs = re.findall("(\w+)\s+(\d+)",self._run_prog("ps ax -c -o command,pid"))
+        _allprogs = re.findall(r"(\w+)\s+(\d+)",self._run_prog("ps ax -c -o command,pid"))
         return int(dict(_allprogs).get(prog,default))
 
     def _config_reader(self,config=""):
@@ -502,7 +502,7 @@ class checkmk_checker(object):
     def get_opnsense_ipaddr(self):
         try:
             _ret = {}
-            for _if,_ip,_mask in re.findall("^([\w_]+):\sflags=(?:8943|8051|8043|8863).*?inet\s([\d.]+)\snetmask\s0x([a-f0-9]+)",self._run_prog("ifconfig"),re.DOTALL | re.M):
+            for _if,_ip,_mask in re.findall(r"^([\w_]+):\sflags=(?:8943|8051|8043|8863).*?inet\s([\d.]+)\snetmask\s0x([a-f0-9]+)",self._run_prog("ifconfig"),re.DOTALL | re.M):
                 _ret[_if] = "{0}/{1}".format(_ip,str(bin(int(_mask,16))).count("1"))
             return _ret
         except:
@@ -574,7 +574,7 @@ class checkmk_checker(object):
         _ifconfig_out += "END" ## fix regex
         self._all_interfaces = object_dict()
         self._carp_interfaces = object_dict()
-        for _interface, _data in re.findall("^(?P<iface>[\w.]+):\s(?P<data>.*?(?=^\w))",_ifconfig_out,re.DOTALL | re.MULTILINE):
+        for _interface, _data in re.findall(r"^(?P<iface>[\w.]+):\s(?P<data>.*?(?=^\w))",_ifconfig_out,re.DOTALL | re.MULTILINE):
             _interface_dict = object_dict()
             _interface_dict.update(_interface_stats.get(_interface,{}))
             _interface_dict["interface_name"] = _opnsense_ifs.get(_interface,_interface)
@@ -582,9 +582,9 @@ class checkmk_checker(object):
             #if _interface.startswith("vmx"): ## vmware fix 10GBe (as OS Support)
             #    _interface_dict["speed"] = "10000"
             _interface_dict["systime"] = _now
-            for _key, _val in re.findall("^\s*(\w+)[:\s=]+(.*?)$",_data,re.MULTILINE):
+            for _key, _val in re.findall(r"^\s*(\w+)[:\s=]+(.*?)$",_data,re.MULTILINE):
                 if _key == "description":
-                    _interface_dict["interface_name"] = re.sub("_\((lan|wan|opt\d+)\)$","",_val.strip().replace(" ","_"))
+                    _interface_dict["interface_name"] = re.sub(r"_\((lan|wan|opt\d+)\)$","",_val.strip().replace(" ","_"))
                 if _key == "groups":
                     _interface_dict["groups"] = _val.strip().split()
                 if _key == "ether":
@@ -594,7 +594,7 @@ class checkmk_checker(object):
                 if _interface.startswith("wg") and _interface_dict.get("flags",0) & 0x01:
                     _interface_dict["up"] = "true"
                 if _key == "flags":
-                    _interface_dict["flags"] = int(re.findall("^[a-f\d]+",_val)[0],16)
+                    _interface_dict["flags"] = int(re.findall(r"^[a-f\d]+",_val)[0],16)
                     ## hack pppoe no status active or pppd pid
                     if _interface.lower().startswith("pppoe") and _interface_dict["flags"] & 0x10 and  _interface_dict["flags"] & 0x1: 
                         _interface_dict["up"] = "true"
@@ -608,12 +608,12 @@ class checkmk_checker(object):
                     ## 0x800 SIMPLEX
                     ## 0x8000 MULTICAST
                 if _key == "media":
-                    _match = re.search("\((?P<speed>\d+G?)[Bb]ase(?:.*?<(?P<duplex>.*?)>)?",_val)
+                    _match = re.search(r"\((?P<speed>\d+G?)[Bb]ase(?:.*?<(?P<duplex>.*?)>)?",_val)
                     if _match:
                         _interface_dict["speed"] = _match.group("speed").replace("G","000")
                         _interface_dict["duplex"] = _match.group("duplex")
                 if _key == "inet":
-                    _match = re.search("^(?P<ipaddr>[\d.]+)\/(?P<cidr>\d+).*?(?:vhid\s(?P<vhid>\d+)|$)",_val,re.M)
+                    _match = re.search(r"^(?P<ipaddr>[\d.]+)\/(?P<cidr>\d+).*?(?:vhid\s(?P<vhid>\d+)|$)",_val,re.M)
                     if _match:
                         _cidr = _match.group("cidr")
                         _ipaddr = _match.group("ipaddr")
@@ -622,7 +622,7 @@ class checkmk_checker(object):
                             _interface_dict["cidr"] = _cidr ## cidr wenn kein vhid
                         ## fixme ipaddr dict / vhid dict
                 if _key == "inet6":
-                    _match = re.search("^(?P<ipaddr>[0-9a-f:]+)\/(?P<prefix>\d+).*?(?:vhid\s(?P<vhid>\d+)|$)",_val,re.M)
+                    _match = re.search(r"^(?P<ipaddr>[0-9a-f:]+)\/(?P<prefix>\d+).*?(?:vhid\s(?P<vhid>\d+)|$)",_val,re.M)
                     if _match:
                         _ipaddr = _match.group("ipaddr")
                         _prefix = _match.group("prefix")
@@ -631,7 +631,7 @@ class checkmk_checker(object):
                             _interface_dict["prefix"] = _prefix
                         ## fixme ipaddr dict / vhid dict
                 if _key == "carp":
-                    _match = re.search("(?P<status>MASTER|BACKUP)\svhid\s(?P<vhid>\d+)\sadvbase\s(?P<base>\d+)\sadvskew\s(?P<skew>\d+)",_val,re.M)
+                    _match = re.search(r"(?P<status>MASTER|BACKUP)\svhid\s(?P<vhid>\d+)\sadvbase\s(?P<base>\d+)\sadvskew\s(?P<skew>\d+)",_val,re.M)
                     if _match:
                         _carpstatus = _match.group("status")
                         _vhid = _match.group("vhid")
@@ -640,7 +640,7 @@ class checkmk_checker(object):
                         _advskew = _match.group("skew")
                         ## fixme vhid dict
                 if _key == "id":
-                    _match = re.search("priority\s(\d+)",_val)
+                    _match = re.search(r"priority\s(\d+)",_val)
                     if _match:
                         _interface_dict["bridge_prio"] = _match.group(1)
                 if _key == "member":
@@ -817,7 +817,7 @@ class checkmk_checker(object):
             try:
                 _sock.connect(_path)
                 _data = _sock.recv(1024).decode("utf-8").strip()
-                _name, _rtt, _rttsd, _loss = re.findall("(\S+)\s(\d+)\s(\d+)\s(\d+)$",_data)[0]
+                _name, _rtt, _rttsd, _loss = re.findall(r"(\S+)\s(\d+)\s(\d+)\s(\d+)$",_data)[0]
                 assert _name.strip() == gateway
                 return int(_rtt)/1_000_000.0,int(_rttsd)/1_000_000.0, int(_loss)
             except:
@@ -922,7 +922,7 @@ class checkmk_checker(object):
                         
                         _server["bytesin"], _server["bytesout"] = self._get_traffic("openvpn",
                             "SRV_{name}".format(**_server),
-                            *(map(lambda x: int(x),re.findall("bytes\w+=(\d+)",self._read_from_openvpnsocket(_server["socket"],"load-stats"))))
+                            *(map(lambda x: int(x),re.findall(r"bytes\w+=(\d+)",self._read_from_openvpnsocket(_server["socket"],"load-stats"))))
                         )
                         _laststate = self._read_from_openvpnsocket(_server["socket"],"state 1").strip().split("\r\n")[-2]
                         _timestamp, _server["connstate"], _data = _laststate.split(",",2)
@@ -933,7 +933,7 @@ class checkmk_checker(object):
                             _server["remote_port"] = _data[3]
                             _server["source_addr"] = _data[4]
                             _server["status"] = 0 if _server["status"] == 3 else _server["status"]
-                            _ret.append('{status} "OpenVPN Connection: {name}" connections_ssl_vpn=1;;|if_in_octets={bytesin}|if_out_octets={bytesout}|expiredays={expiredays} Connected {remote_ipaddr}:{remote_port} {vpn_ipaddr} {expiredate}\Source IP: {source_addr}'.format(**_server))
+                            _ret.append('{status} "OpenVPN Connection: {name}" connections_ssl_vpn=1;;|if_in_octets={bytesin}|if_out_octets={bytesout}|expiredays={expiredays} Connected {remote_ipaddr}:{remote_port} {vpn_ipaddr} {expiredate}/Source IP: {source_addr}'.format(**_server))
                         else:
                             if _server["type"] == "client":
                                 _server["status"] = 2
@@ -955,7 +955,7 @@ class checkmk_checker(object):
                             
                             _server["bytesin"], _server["bytesout"] = self._get_traffic("openvpn",
                                 "SRV_{name}".format(**_server),
-                                *(map(lambda x: int(x),re.findall("bytes\w+=(\d+)",self._read_from_openvpnsocket(_server["socket"],"load-stats"))))
+                                *(map(lambda x: int(x),re.findall(r"bytes\w+=(\d+)",self._read_from_openvpnsocket(_server["socket"],"load-stats"))))
                             )
                             _server["status"] = 0 if _server["status"] == 3 else _server["status"]
                         except:
@@ -965,7 +965,7 @@ class checkmk_checker(object):
                         _number_of_clients = 0
                         _now = int(time.time())
                         _response = self._read_from_openvpnsocket(_server["socket"],"status 2")
-                        for _client_match in re.finditer("^CLIENT_LIST,(.*?)$",_response,re.M):
+                        for _client_match in re.finditer(r"^CLIENT_LIST,(.*?)$",_response,re.M):
                             _number_of_clients += 1
                             _client_raw = list(map(lambda x: x.strip(),_client_match.group(1).split(",")))
                             _client = {
@@ -1147,7 +1147,7 @@ class checkmk_checker(object):
             _unbound_stat = dict(
                 map(
                     lambda x: (x[0].replace(".","_"),float(x[1])),
-                        re.findall("total\.([\w.]+)=([\d.]+)",_output)
+                        re.findall(r"total\.([\w.]+)=([\d.]+)",_output)
                 )
             )
             _ret.append("0 \"Unbound DNS\" dns_successes={num_queries:.0f}|dns_recursion={num_recursivereplies:.0f}|dns_cachehits={num_cachehits:.0f}|dns_cachemiss={num_cachemiss:.0f}|avg_response_time={recursion_time_avg} Unbound running".format(**_unbound_stat))
@@ -1304,7 +1304,7 @@ class checkmk_checker(object):
     def check_smartinfo(self):
         if not os.path.exists("/usr/local/sbin/smartctl"):
             return []
-        REGEX_DISCPATH = re.compile("(sd[a-z]+|da[0-9]+|nvme[0-9]+|ada[0-9]+)$")
+        REGEX_DISCPATH = re.compile(r"(sd[a-z]+|da[0-9]+|nvme[0-9]+|ada[0-9]+)$")
         _ret = ["<<<disk_smart_info:sep(124)>>>"]
         for _dev in filter(lambda x: REGEX_DISCPATH.match(x),os.listdir("/dev/")):
             try:
@@ -1317,7 +1317,7 @@ class checkmk_checker(object):
         if not os.path.exists("/usr/local/bin/ipmitool"):
             return []
         _out = self._run_prog("ipmitool sensor list")
-        _ipmisensor = re.findall("^(?!.*\sna\s.*$).*",_out,re.M)
+        _ipmisensor = re.findall(r"^(?!.*\sna\s.*$).*",_out,re.M)
         if _ipmisensor:
             return ["<<<ipmi:sep(124)>>>"] + _ipmisensor
         return []
@@ -1443,7 +1443,7 @@ class checkmk_checker(object):
     def check_netctr(self):
         _ret = ["<<<netctr>>>"]
         _out = self._run_prog("netstat -inb")
-        for _line in re.finditer("^(?!Name|lo|plip)(?P<iface>\w+)\s+(?P<mtu>\d+).*?Link.*?\s+.*?\s+(?P<inpkts>\d+)\s+(?P<inerr>\d+)\s+(?P<indrop>\d+)\s+(?P<inbytes>\d+)\s+(?P<outpkts>\d+)\s+(?P<outerr>\d+)\s+(?P<outbytes>\d+)\s+(?P<coll>\d+)$",_out,re.M):
+        for _line in re.finditer(r"^(?!Name|lo|plip)(?P<iface>\w+)\s+(?P<mtu>\d+).*?Link.*?\s+.*?\s+(?P<inpkts>\d+)\s+(?P<inerr>\d+)\s+(?P<indrop>\d+)\s+(?P<inbytes>\d+)\s+(?P<outpkts>\d+)\s+(?P<outerr>\d+)\s+(?P<outbytes>\d+)\s+(?P<coll>\d+)$",_out,re.M):
             _ret.append("{iface} {inbytes} {inpkts} {inerr} {indrop} 0 0 0 0 {outbytes} {outpkts} {outerr} 0 0 0 0 0".format(**_line.groupdict()))
         return _ret
 
@@ -1457,7 +1457,7 @@ class checkmk_checker(object):
     def check_tcp(self):
         _ret = ["<<<tcp_conn_stats>>>"]
         _out = self._run_prog("netstat -na")
-        counts = Counter(re.findall("ESTABLISHED|LISTEN",_out))
+        counts = Counter(re.findall(r"ESTABLISHED|LISTEN",_out))
         for _key,_val in counts.items():
             _ret.append(f"{_key} {_val}")
         return _ret
@@ -1465,14 +1465,14 @@ class checkmk_checker(object):
     def check_ps(self):
         _ret = ["<<<ps>>>"]
         _out = self._run_prog("ps ax -o state,user,vsz,rss,pcpu,command")
-        for _line in re.finditer("^(?P<stat>\w+)\s+(?P<user>\w+)\s+(?P<vsz>\d+)\s+(?P<rss>\d+)\s+(?P<cpu>[\d.]+)\s+(?P<command>.*)$",_out,re.M):
+        for _line in re.finditer(r"^(?P<stat>\w+)\s+(?P<user>\w+)\s+(?P<vsz>\d+)\s+(?P<rss>\d+)\s+(?P<cpu>[\d.]+)\s+(?P<command>.*)$",_out,re.M):
             _ret.append("({user},{vsz},{rss},{cpu}) {command}".format(**_line.groupdict()))
         return _ret
 
     def check_uptime(self):
         _ret = ["<<<uptime>>>"]
         _uptime_sec = time.time() - int(self._run_prog("sysctl -n kern.boottime").split(" ")[3].strip(" ,"))
-        _idle_sec = re.findall("(\d+):[\d.]+\s+\[idle\]",self._run_prog("ps axw"))[0]
+        _idle_sec = re.findall(r"(\d+):[\d.]+\s+\[idle\]",self._run_prog("ps axw"))[0]
         _ret.append(f"{_uptime_sec} {_idle_sec}")
         return _ret
 
@@ -1489,12 +1489,12 @@ class checkmk_checker(object):
         else:
             try:
                 _ret.append("[[[/etc/os-release]]]")
-                _ret += list(map(lambda x: 'Name={0}|VERSION="{1}"|VERSION_ID="{2}"|ID=freebsd|PRETTY_NAME="{0} {1}"'.format(x[0],x[1],x[1].split("-")[0]),re.findall("(\w+)\s([\w.-]+)\s(\d+)",self._run_cache_prog("uname -rsK",1200))))
+                _ret += list(map(lambda x: 'Name={0}|VERSION="{1}"|VERSION_ID="{2}"|ID=freebsd|PRETTY_NAME="{0} {1}"'.format(x[0],x[1],x[1].split("-")[0]),re.findall(r"(\w+)\s([\w.-]+)\s(\d+)",self._run_cache_prog("uname -rsK",1200))))
             except:
                 raise
         _ret += [f"<<<lnx_packages:sep(124):persist({_persist})>>>"]
         _system = platform.machine()
-        _ret += list(map(lambda x: f"{{0}}|{{1}}|{_system}|freebsd|{{2}}|install ok installed".format(*x),re.findall("(\S+)-([0-9][0-9a-z._,-]+)\s*(.*)",self._run_cache_prog("pkg info",1200),re.M)))
+        _ret += list(map(lambda x: f"{{0}}|{{1}}|{_system}|freebsd|{{2}}|install ok installed".format(*x),re.findall(r"(\S+)-([0-9][0-9a-z._,-]+)\s*(.*)",self._run_cache_prog("pkg info",1200),re.M)))
         return _ret
 
     def _run_prog(self,cmdline="",*args,shell=False,timeout=60,ignore_error=False):
@@ -1570,7 +1570,7 @@ class checkmk_cached_process(object):
         if self._islocal:
             _data = "".join([f"cached({_mtime},{cachetime}) {_line}" for _line in _data.splitlines(True) if len(_line.strip()) > 0])
         else:
-            _data = re.sub("\B[<]{3}(.*?)[>]{3}\B",f"<<<\\1:cached({_mtime},{cachetime})>>>",_data)
+            _data = re.sub(r"\B[<]{3}(.*?)[>]{3}\B",f"<<<\\1:cached({_mtime},{cachetime})>>>",_data)
         return _data
 
 class checkmk_server(TCPServer,checkmk_checker):
@@ -1886,7 +1886,7 @@ class checkmk_task(object):
             _data = ""
         _now = int(time.time())
         _results = []
-        for _port in re.finditer("<port protocol=\"(?P<proto>tcp|udp)\"\sportid=\"(?P<port>\d+)\".*?state=\"(?P<state>[\w|]+)\"\sreason=\"(?P<reason>[\w-]+)\"(?:.*?name=\"(?P<protoname>[\w-]+)\")*.*</port>",_data):
+        for _port in re.finditer(r"<port protocol=\"(?P<proto>tcp|udp)\"\sportid=\"(?P<port>\d+)\".*?state=\"(?P<state>[\w|]+)\"\sreason=\"(?P<reason>[\w-]+)\"(?:.*?name=\"(?P<protoname>[\w-]+)\")*.*</port>",_data):
             _results.append(_port.groupdict())
         
         _ret = {
@@ -2011,7 +2011,7 @@ class checkmk_task(object):
     def cachecontent(self,content):
         _now = int(time.time())
         _cache=f"cache({_now},{self.interval})"
-        for _section in re.findall("^<<<(.*?)>>>\s*$",content,re.M):
+        for _section in re.findall(r"^<<<(.*?)>>>\s*$",content,re.M):
             if _section.group(1).startswith("local"):
                 continue
 
@@ -2403,7 +2403,7 @@ if __name__ == "__main__":
     _parser.error = _args_error
     args = _parser.parse_args()
     if args.configfile and os.path.exists(args.configfile):
-        for _k,_v in re.findall(f"^(\w+):\s*(.*?)(?:\s+#|$)",open(args.configfile,"rt").read(),re.M):
+        for _k,_v in re.findall(rf"^(\w+):\s*(.*?)(?:\s+#|$)",open(args.configfile,"rt").read(),re.M):
             if _k == "port":
                 args.port = int(_v)
             if _k == "encrypt" and args.encrypt == None:
@@ -2431,7 +2431,7 @@ if __name__ == "__main__":
     except (FileNotFoundError,IOError,ValueError):
         _out = subprocess.check_output(["sockstat", "-l", "-p", str(args.port),"-P", "tcp"],encoding=sys.stdout.encoding)
         try:
-            _pid = int(re.findall("\s(\d+)\s",_out.split("\n")[1])[0])
+            _pid = int(re.findall(r"\s(\d+)\s",_out.split("\n")[1])[0])
         except (IndexError,ValueError):
             pass
     _active_methods = [getattr(args,x,False) for x in ("start","stop","restart","status","zabbix","nodaemon","debug","configdebug","update","checkoutput","help")]
@@ -2509,7 +2509,7 @@ if __name__ == "__main__":
         _github_version = _github_req.json()
         _github_last_modified = datetime.strptime(_github_req.headers.get("last-modified"),"%a, %d %b %Y %X %Z")
         _new_script = base64.b64decode(_github_version.get("content")).decode("utf-8")
-        _new_version = re.findall("^__VERSION__.*?\"([0-9.]*)\"",_new_script,re.M)
+        _new_version = re.findall(r"^__VERSION__.*?\"([0-9.]*)\"",_new_script,re.M)
         _new_version = _new_version[0] if _new_version else "0.0.0"
         _script_location = os.path.realpath(__file__)
         _current_last_modified = datetime.fromtimestamp(int(os.path.getmtime(_script_location)))
